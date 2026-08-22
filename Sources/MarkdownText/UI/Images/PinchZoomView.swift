@@ -5,10 +5,12 @@
 
 import SwiftUI
 
-#if os(iOS)
+#if canImport(UIKit)
 
 /// A zoomable, pannable image view supporting pinch-to-zoom, double-tap zoom,
 /// and swipe-to-dismiss. Used by the built-in fullscreen image viewer.
+/// `canImport(UIKit)`, not `os(iOS)`, so visionOS gets it too — nothing in
+/// this view is UIKit-specific, it is pure SwiftUI gestures and geometry.
 struct PinchZoomView: View {
   static let dismissVelocity = 1500.0
   static let panVelocity = 500.0

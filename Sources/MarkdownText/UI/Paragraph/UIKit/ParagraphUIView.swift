@@ -82,7 +82,13 @@ class ParagraphUIView: UITextView {
     var targetWidth = bounds.width
     if targetWidth <= 0 || targetWidth.isInfinite {
       // When bounds.width is not valid, we have to give a best guess, otherwise Chat becomes blank in some cases sometimes. It may be related to LazyVStack.
+      // UIScreen has no meaning in visionOS's windowed, unbounded space, so
+      // fall back to the window's own bounds there instead.
+      #if os(visionOS)
+      targetWidth = window?.bounds.width ?? 400
+      #else
       targetWidth = UIScreen.main.bounds.width
+      #endif
     }
     let targetSize = CGSize(width: targetWidth, height: .greatestFiniteMagnitude)
     let contentSize = sizeThatFits(targetSize)
@@ -183,7 +189,7 @@ class ParagraphUIView: UITextView {
     // independent of the device's locale/region.
     textAlignment = .natural
     backgroundColor = .clear
-    if #available(iOS 18.0, *) {
+    if #available(iOS 18.0, visionOS 2.4, *) {
       writingToolsBehavior = .none
     }
 
@@ -349,6 +355,12 @@ extension ParagraphUIView: UITextViewDelegate {
     return false
   }
 
+  // Apple marks this specific UITextViewDelegate overload unavailable on
+  // visionOS (attachment-tap interaction isn't part of its restricted UIKit
+  // text system) — everything else in this file is shared normally via
+  // canImport(UIKit). Citation-attachment taps are simply not wired on
+  // visionOS as a result.
+  #if !os(visionOS)
   func textView(_ textView: UITextView, shouldInteractWith textAttachment: NSTextAttachment, in characterRange: NSRange) -> Bool {
     // Check if this is our custom citation attachment with pre-decoded data
     if let citationAttachment = textAttachment as? InlineCitationAttachment,
@@ -359,6 +371,7 @@ extension ParagraphUIView: UITextViewDelegate {
 
     return false
   }
+  #endif
 
   func textView(_ textView: UITextView, editMenuForTextIn range: NSRange, suggestedActions: [UIMenuElement]) -> UIMenu? {
     guard let textContextMenu else { return nil }

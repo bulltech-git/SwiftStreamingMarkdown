@@ -12,7 +12,7 @@ struct FadeInTextTransitionViewModifier: ViewModifier {
   let config: FadeInTransitionConfig
 
   func body(content: Content) -> some View {
-    if #available(iOS 18.0, macOS 15.0, *) {
+    if #available(iOS 18.0, macOS 15.0, visionOS 2.0, *) {
       ZStack {
         if show {
           content
@@ -39,7 +39,7 @@ enum FadeInTransitionConfig {
   case fixedDuration(duration: TimeInterval, glyphDelay: TimeInterval, glyphDuration: TimeInterval)
   case variableDuration(glyphCount: Int, glyphDelay: TimeInterval, glyphDuration: TimeInterval)
 
-  @available(iOS 18.0, macOS 15.0, *)
+  @available(iOS 18.0, macOS 15.0, visionOS 2.0, *)
   var asTransition: AnyTransition {
     switch self {
     case .fixedDuration(let duration, let glyphDelay, let glyphDuration):

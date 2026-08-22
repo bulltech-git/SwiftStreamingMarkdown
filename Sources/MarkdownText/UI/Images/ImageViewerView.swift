@@ -8,14 +8,15 @@ import SwiftUI
 extension View {
   /// Presents the built-in fullscreen image viewer for a resolved image source.
   ///
-  /// The viewer is an iOS-only feature; on other platforms this is a no-op.
+  /// The viewer is an iOS/visionOS feature (anywhere `fullScreenCover` and
+  /// pinch/magnify gestures are available); on macOS this is a no-op.
   @ViewBuilder
   func imageViewer(
     source: ImageData.Source?,
     alt: String,
     isPresented: Binding<Bool>
   ) -> some View {
-    #if os(iOS)
+    #if canImport(UIKit)
     fullScreenCover(isPresented: isPresented) {
       if let source {
         ImageViewerView(source: source, alt: alt) {
@@ -29,7 +30,7 @@ extension View {
   }
 }
 
-#if os(iOS)
+#if canImport(UIKit)
 
 /// The built-in fullscreen image viewer presented when a user taps a rendered
 /// block-level image and `ImageConfig.fullscreenViewerEnabled` is `true`.
