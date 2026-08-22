@@ -1,0 +1,88 @@
+#
+# Watches microsoft/SwiftStreamingMarkdown and opens a PR when it moves ahead
+# of our patched `makeness` branch.
+#
+# It never pushes to `makeness` directly: upstream can change the very files we
+# patch (alignment, block quotes), so every sync goes through a PR that shows
+# the conflict — or the clean merge — before anything lands in the branch the
+# app builds against.
+#
+name: Sync from upstream
+
+on:
+  schedule:
+    # Mondays 06:00 UTC. Upstream moves slowly; a weekly check is plenty.
+    - cron: "0 6 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out our patched branch
+        uses: actions/checkout@v4
+        with:
+          ref: makeness
+          # Full history so the merge base with upstream can be computed.
+          fetch-depth: 0
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/microsoft/SwiftStreamingMarkdown.git
+          git fetch upstream main
+
+      - name: Stop if we are already up to date
+        id: check
+        run: |
+          behind=$(git rev-list --count HEAD..upstream/main)
+          echo "behind=$behind" >> "$GITHUB_OUTPUT"
+          if [ "$behind" -eq 0 ]; then
+            echo "Already contains every upstream commit — nothing to do."
+          else
+            echo "$behind new upstream commit(s) to bring in."
+          fi
+
+      - name: Build the sync branch
+        if: steps.check.outputs.behind != '0'
+        id: merge
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B upstream-sync
+
+          # A conflict is a result, not a failure: it means upstream touched
+          # one of our patches and a human needs to reconcile them. Record it
+          # and hand over the half-merged branch so the PR shows the markers.
+          if git merge --no-edit upstream/main; then
+            echo "conflicts=false" >> "$GITHUB_OUTPUT"
+          else
+            git add -A
+            git commit -m "Merge upstream/main (CONFLICTS — needs manual resolution)"
+            echo "conflicts=true" >> "$GITHUB_OUTPUT"
+          fi
+          git push --force origin upstream-sync
+
+      - name: Open or update the pull request
+        if: steps.check.outputs.behind != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BEHIND: ${{ steps.check.outputs.behind }}
+          CONFLICTS: ${{ steps.merge.outputs.conflicts }}
+        run: |
+          if [ "$CONFLICTS" = "true" ]; then
+            title="⚠️ Upstream sync: $BEHIND new commit(s) — CONFLICTS"
+            body=$'Upstream changed files that our patches also touch, so this merge left conflict markers.\n\nResolve them locally, keeping our right-to-left alignment behaviour:\n\n```\ngit fetch origin\ngit checkout upstream-sync\n# fix the conflicts, then\nswift test --filter RightToLeftAlignmentTests\ngit commit -a && git push\n```\n\nMerging this PR updates `makeness`. The app pins an exact revision, so bump it in the three `.xcodeproj` files afterwards.'
+          else
+            title="Upstream sync: $BEHIND new commit(s)"
+            body=$'Upstream merged cleanly into our patched branch.\n\nBefore merging, confirm our patches survived:\n\n```\ngit fetch origin && git checkout upstream-sync\nswift test --filter RightToLeftAlignmentTests\n```\n\nMerging this PR updates `makeness`. The app pins an exact revision, so bump it in the three `.xcodeproj` files afterwards.'
+          fi
+
+          if gh pr view upstream-sync --json number >/dev/null 2>&1; then
+            gh pr edit upstream-sync --title "$title" --body "$body"
+          else
+            gh pr create --base makeness --head upstream-sync --title "$title" --body "$body"
+          fi
