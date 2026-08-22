@@ -75,7 +75,12 @@ jobs:
           # enabled here and it still failed with "Resource not accessible by
           # integration"). A fine-grained PAT scoped to just this repo
           # (Contents + Pull requests: read/write), stored as the SYNC_PAT
-          # secret, sidesteps that restriction entirely.
+          # secret, was the next step — but `gh pr create`/`gh pr edit` call
+          # GitHub's GraphQL API, and fine-grained PATs still failed there too
+          # ("Resource not accessible by personal access token"), a known gap
+          # in fine-grained-PAT GraphQL support. The plain REST API (`gh api`)
+          # is what fine-grained PATs support fully, so this step uses that
+          # instead of the `gh pr` subcommands.
           GH_TOKEN: ${{ secrets.SYNC_PAT }}
           BEHIND: ${{ steps.check.outputs.behind }}
           CONFLICTS: ${{ steps.merge.outputs.conflicts }}
@@ -88,8 +93,11 @@ jobs:
             body=$'Upstream merged cleanly into our patched branch.\n\nBefore merging, confirm our patches survived:\n\n```\ngit fetch origin && git checkout upstream-sync\nswift test --filter RightToLeftAlignmentTests\n```\n\nMerging this PR updates `makeness`. The app pins an exact revision, so bump it in the three `.xcodeproj` files afterwards.'
           fi
 
-          if gh pr view upstream-sync --json number >/dev/null 2>&1; then
-            gh pr edit upstream-sync --title "$title" --body "$body"
+          repo="${{ github.repository }}"
+          existing=$(gh api "repos/${repo}/pulls?head=${repo%%/*}:upstream-sync&state=open&base=makeness" --jq '.[0].number')
+
+          if [ -n "$existing" ]; then
+            gh api "repos/${repo}/pulls/${existing}" -X PATCH -f title="$title" -f body="$body"
           else
-            gh pr create --base makeness --head upstream-sync --title "$title" --body "$body"
+            gh api "repos/${repo}/pulls" -X POST -f title="$title" -f body="$body" -f head=upstream-sync -f base=makeness
           fi
