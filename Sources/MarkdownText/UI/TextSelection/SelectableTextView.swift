@@ -20,7 +20,9 @@ private func selectionAttributedString(for text: String) -> NSAttributedString {
   let fonts = Typography.baseTextFonts
   let font = fonts.normal
   let paragraphStyle = NSMutableParagraphStyle()
-  paragraphStyle.alignment = .left
+  // .natural (not .left) so RTL content (Arabic, Hebrew, ...) reads right,
+  // matching ParagraphUIView/ParagraphNSView's own alignment.
+  paragraphStyle.alignment = .natural
   if let preferredLineHeight = fonts.preferredLineHeight, preferredLineHeight > font.lineHeight {
     paragraphStyle.lineSpacing = preferredLineHeight - font.lineHeight
   }

@@ -178,7 +178,10 @@ class ParagraphUIView: UITextView {
     isEditable = false
     isSelectable = true
     isScrollEnabled = false
-    textAlignment = .left
+    // .natural (not .left) so TextKit resolves alignment per paragraph from
+    // the text's own script — RTL content (Arabic, Hebrew, ...) reads right,
+    // independent of the device's locale/region.
+    textAlignment = .natural
     backgroundColor = .clear
     if #available(iOS 18.0, *) {
       writingToolsBehavior = .none
@@ -383,7 +386,7 @@ fileprivate extension NSMutableAttributedString {
   func setLineSpacing(_ lineSpacing: CGFloat) {
     let paragraphStyle = NSMutableParagraphStyle()
     paragraphStyle.lineSpacing = lineSpacing
-    paragraphStyle.alignment = .left
+    paragraphStyle.alignment = .natural
     addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: length))
   }
 }

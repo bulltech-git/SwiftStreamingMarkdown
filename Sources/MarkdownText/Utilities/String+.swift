@@ -8,6 +8,27 @@ import Markdown
 
 extension String {
 
+  /// Unicode ranges for scripts written right-to-left (Hebrew, Arabic and its
+  /// related blocks, Syriac, Thaana, N'Ko, Samaritan, Mandaic).
+  private static let rightToLeftRanges: [ClosedRange<UInt32>] = [
+    0x0590...0x05FF, 0x0600...0x06FF, 0x0700...0x074F, 0x0750...0x077F,
+    0x0780...0x07BF, 0x07C0...0x07FF, 0x0800...0x083F, 0x0840...0x085F,
+    0x08A0...0x08FF, 0xFB1D...0xFDFF, 0xFE70...0xFEFF
+  ]
+
+  /// True when the first letter reads right-to-left. Mirrors the heuristic
+  /// UIKit/AppKit's `.natural` text alignment resolves per paragraph
+  /// automatically — needed here because plain SwiftUI `Text` has no
+  /// attributed-string paragraph style to hang that behavior on, so call
+  /// sites that build layout from content (rather than inheriting
+  /// `\.layoutDirection`) read this instead.
+  var startsRightToLeft: Bool {
+    for scalar in unicodeScalars where CharacterSet.letters.contains(scalar) {
+      return Self.rightToLeftRanges.contains { $0.contains(scalar.value) }
+    }
+    return false
+  }
+
   public func markdownToPlainText(removeHeading: Bool = false, coder: CitationCoder = .default) async -> String {
     let markdownParser = MarkdownParserImpl()
     let document = await markdownParser.parse(text: self)

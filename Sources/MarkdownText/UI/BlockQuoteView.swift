@@ -37,6 +37,11 @@ private struct InternalBlockQuoteView: View {
 
             Spacer()
           }
+          // Plain SwiftUI Text has no attributed-string paragraph style to
+          // resolve `.natural` alignment from (unlike ParagraphUIView), so
+          // this HStack's own mirroring is driven from the quote's content
+          // directly instead of relying on inherited `\.layoutDirection`.
+          .environment(\.layoutDirection, text.startsRightToLeft ? .rightToLeft : .leftToRight)
           .fixedSize(horizontal: false, vertical: true)
         case .nested(let subItems):
           ForEach(subItems.indices, id: \.self) { index in
@@ -62,6 +67,7 @@ struct QuoteTextView: View {
     Text(text)
       .font(config.blockQuoteStyle.textFonts)
       .foregroundStyle(config.blockQuoteStyle.textColor)
+      .multilineTextAlignment(text.startsRightToLeft ? .trailing : .leading)
       .padding(.vertical, 4.0)
       .fixedSize(horizontal: false, vertical: true)
   }

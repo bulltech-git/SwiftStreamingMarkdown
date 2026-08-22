@@ -173,7 +173,10 @@ class ParagraphNSView: NSTextView {
     if let lineSpacing {
       let paragraphStyle = NSMutableParagraphStyle()
       paragraphStyle.lineSpacing = lineSpacing
-      paragraphStyle.alignment = .left
+      // .natural (not .left) so TextKit resolves alignment per paragraph
+      // from the text's own script — RTL content reads right, independent
+      // of the device's locale/region.
+      paragraphStyle.alignment = .natural
       result.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: result.length))
     }
     return result
