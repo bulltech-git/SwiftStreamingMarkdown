@@ -69,7 +69,14 @@ jobs:
       - name: Open or update the pull request
         if: steps.check.outputs.behind != '0'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The default GITHUB_TOKEN can't create pull requests on this repo
+          # (a known extra restriction GitHub applies to forks, separate from
+          # the repo/org "allow Actions to create PRs" settings — both are
+          # enabled here and it still failed with "Resource not accessible by
+          # integration"). A fine-grained PAT scoped to just this repo
+          # (Contents + Pull requests: read/write), stored as the SYNC_PAT
+          # secret, sidesteps that restriction entirely.
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}
           BEHIND: ${{ steps.check.outputs.behind }}
           CONFLICTS: ${{ steps.merge.outputs.conflicts }}
         run: |
