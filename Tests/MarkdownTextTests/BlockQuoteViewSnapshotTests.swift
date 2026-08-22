@@ -8,10 +8,10 @@ import Markdown
 import XCTest
 
 enum TestStrings {
-  static let l0 = "Level 0"
-  static let l1 = "Level 1"
-  static let l2 = "Level 2"
-  static let l3 = "Level 3"
+  static let l0 = NSMutableAttributedString(string: "Level 0")
+  static let l1 = NSMutableAttributedString(string: "Level 1")
+  static let l2 = NSMutableAttributedString(string: "Level 2")
+  static let l3 = NSMutableAttributedString(string: "Level 3")
 }
 
 final class BlockQuoteViewSnapshotTests: SnapshotTestCase {

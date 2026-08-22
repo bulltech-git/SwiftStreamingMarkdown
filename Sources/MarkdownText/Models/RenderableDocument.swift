@@ -118,8 +118,8 @@ private extension Array where Element == MarkdownListItem {
 private extension BlockQuoteType {
   var plainText: String {
     switch self {
-    case .text(let text):
-      return text
+    case .text(let content):
+      return content.string
     case .nested(let items):
       return items.map { $0.plainText }.joined(separator: "\n")
     }

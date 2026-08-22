@@ -31,18 +31,9 @@ private struct InternalBlockQuoteView: View {
 
       VStack(spacing: 12.0) {
         switch item {
-        case .text(let text):
-          HStack {
-            QuoteTextView(text: text)
-
-            Spacer()
-          }
-          // Plain SwiftUI Text has no attributed-string paragraph style to
-          // resolve `.natural` alignment from (unlike ParagraphUIView), so
-          // this HStack's own mirroring is driven from the quote's content
-          // directly instead of relying on inherited `\.layoutDirection`.
-          .environment(\.layoutDirection, text.startsRightToLeft ? .rightToLeft : .leftToRight)
-          .fixedSize(horizontal: false, vertical: true)
+        case .text(let content):
+          QuoteTextView(content: content)
+            .fixedSize(horizontal: false, vertical: true)
         case .nested(let subItems):
           ForEach(subItems.indices, id: \.self) { index in
             InternalBlockQuoteView(item: subItems[index])
@@ -58,18 +49,20 @@ private struct InternalBlockQuoteView: View {
   }
 }
 
+/// Renders through the same `ParagraphView` (UITextView/NSTextView) that
+/// paragraphs use — not plain SwiftUI `Text` — so a block quote gets
+/// everything paragraphs already get for free: tappable links (`ParagraphView`
+/// reads `\.openURL` directly), preserved bold/italic/citations, and correct
+/// RTL alignment via `.natural` (resolved by the text system from the
+/// content's own script, so no separate direction heuristic is needed here).
 struct QuoteTextView: View {
-  @Environment(\.markdownConfig) var config: MarkdownRenderConfig
-
-  let text: String
+  let content: NSMutableAttributedString
 
   var body: some View {
-    Text(text)
-      .font(config.blockQuoteStyle.textFonts)
-      .foregroundStyle(config.blockQuoteStyle.textColor)
-      .multilineTextAlignment(text.startsRightToLeft ? .trailing : .leading)
-      .padding(.vertical, 4.0)
+    ParagraphView(contents: content)
       .fixedSize(horizontal: false, vertical: true)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.vertical, 4.0)
   }
 }
 
@@ -80,8 +73,8 @@ struct QuoteDivider: View {
   }
 }
 
-indirect enum BlockQuoteType: Equatable, Hashable {
-  case text(String)
+indirect enum BlockQuoteType: Equatable {
+  case text(NSMutableAttributedString)
   case nested([BlockQuoteType])
 
   var isNested: Bool {
