@@ -11,6 +11,15 @@ import UIKit
 import AppKit
 #endif
 
+/// The bundled type scale, expressed at the **design size** (`DynamicTypeSize.large`,
+/// i.e. `UIContentSizeCategory.large`).
+///
+/// Nothing here is scaled for Dynamic Type: these values feed `static let`
+/// defaults such as `MarkdownRenderConfig.defaultParagraphStyle`, which are
+/// computed once per process and could never follow a later text-size change.
+/// Scaling has a single owner — `MarkdownRenderConfig.scaled(for:)` — and is
+/// applied at render time from the ambient `\.dynamicTypeSize`.
+/// See `DynamicTypeScaling.swift`.
 enum Typography: CaseIterable, Sendable {
   case extraLargeStrong
   case extraLargeStrongItalic
@@ -82,21 +91,6 @@ enum Typography: CaseIterable, Sendable {
     }
   }
 
-  #if canImport(UIKit)
-  private static func systemFont(size: CGFloat, weight: MDFont.Weight, italic: Bool = false) -> MDFont {
-    let scaledSize = UIFontMetrics.default.scaledValue(for: size)
-    let baseFont = MDFont.systemFont(ofSize: scaledSize, weight: weight)
-    guard italic else {
-      return baseFont
-    }
-    return baseFont.withItalicTrait()
-  }
-
-  private static func systemMonospacedFont(size: CGFloat, weight: MDFont.Weight) -> MDFont {
-    let scaledSize = UIFontMetrics.default.scaledValue(for: size)
-    return MDFont.monospacedSystemFont(ofSize: scaledSize, weight: weight)
-  }
-  #elseif canImport(AppKit)
   private static func systemFont(size: CGFloat, weight: MDFont.Weight, italic: Bool = false) -> MDFont {
     let baseFont = MDFont.systemFont(ofSize: size, weight: weight)
     guard italic else {
@@ -108,7 +102,6 @@ enum Typography: CaseIterable, Sendable {
   private static func systemMonospacedFont(size: CGFloat, weight: MDFont.Weight) -> MDFont {
     MDFont.monospacedSystemFont(ofSize: size, weight: weight)
   }
-  #endif
 
   var font: Font {
     return Font(mdFont)

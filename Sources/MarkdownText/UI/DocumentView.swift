@@ -35,7 +35,6 @@ public struct DocumentView: View {
 
   public var body: some View {
     BlockView(renderables: renderableDocument.renderables)
-    .environment(\.markdownConfig, config)
     .environment(\.markdownController, controller)
     .task {
       await controller.onAppear(markdown: renderableDocument)
@@ -56,6 +55,10 @@ public struct DocumentView: View {
         controller.isTextSelectionRequested = false
       }
     }
+    // Outermost, so the scaled config reaches the sheet's content as well as
+    // the blocks: tables, code blocks, list markers and math then follow
+    // Dynamic Type live, without the re-parse that paragraph text needs.
+    .modifier(ScaledMarkdownConfig(config: config))
   }
 }
 

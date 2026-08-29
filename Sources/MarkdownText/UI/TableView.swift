@@ -378,7 +378,8 @@ extension TableView {
     // Apply baseline offset only when we have both citations and non-attachment content
     let shouldApplyBaselineOffset = containsCitationAttachments && containsNonAttachmentContent
     if shouldApplyBaselineOffset {
-      let baselineOffsetValue = Typography.base.mdFont.descender
+      // The cell's own font, so the offset follows Dynamic Type with the text.
+      let baselineOffsetValue = config.tableStyle.textFonts.normal.descender
       for range in citationRanges {
         mutableAttributedString.addAttribute(.baselineOffset, value: baselineOffsetValue, range: range)
       }

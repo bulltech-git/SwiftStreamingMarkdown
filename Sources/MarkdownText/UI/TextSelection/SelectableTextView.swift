@@ -9,15 +9,19 @@ import SwiftUI
 /// On appearance it preselects the first paragraph so the user can immediately
 /// extend the selection.
 struct SelectableTextView: View {
+
+  /// Paragraph fonts, already scaled for the reader's text size by
+  /// `DocumentView` — never `Typography`, whose values are design-size only.
+  @Environment(\.markdownConfig) private var config: MarkdownRenderConfig
+
   let text: String
 
   var body: some View {
-    SelectableTextViewRepresentable(text: text)
+    SelectableTextViewRepresentable(text: text, fonts: config.paragraphStyle.textFonts)
   }
 }
 
-private func selectionAttributedString(for text: String) -> NSAttributedString {
-  let fonts = Typography.baseTextFonts
+private func selectionAttributedString(for text: String, fonts: TextFonts) -> NSAttributedString {
   let font = fonts.normal
   let paragraphStyle = NSMutableParagraphStyle()
   // .natural (not .left) so RTL content (Arabic, Hebrew, ...) reads right,
@@ -54,6 +58,7 @@ import UIKit
 
 private struct SelectableTextViewRepresentable: UIViewRepresentable {
   let text: String
+  let fonts: TextFonts
 
   func makeUIView(context: Context) -> UITextView {
     let textView = UITextView()
@@ -62,7 +67,7 @@ private struct SelectableTextViewRepresentable: UIViewRepresentable {
     textView.backgroundColor = .clear
     textView.showsVerticalScrollIndicator = false
     textView.tintColor = UIColor(Color.Theme.Accent.Accent600)
-    textView.attributedText = selectionAttributedString(for: text)
+    textView.attributedText = selectionAttributedString(for: text, fonts: fonts)
     DispatchQueue.main.async {
       let range = firstParagraphRange(in: text)
       if let start = textView.position(from: textView.beginningOfDocument, offset: range.location),
@@ -75,8 +80,10 @@ private struct SelectableTextViewRepresentable: UIViewRepresentable {
   }
 
   func updateUIView(_ textView: UITextView, context: Context) {
-    if textView.attributedText.string != text {
-      textView.attributedText = selectionAttributedString(for: text)
+    // Also when only the fonts moved: the text is unchanged when the reader
+    // changes their text size mid-selection.
+    if textView.attributedText.string != text || textView.font != fonts.normal {
+      textView.attributedText = selectionAttributedString(for: text, fonts: fonts)
     }
   }
 }
@@ -85,6 +92,7 @@ import AppKit
 
 private struct SelectableTextViewRepresentable: NSViewRepresentable {
   let text: String
+  let fonts: TextFonts
 
   func makeNSView(context: Context) -> NSScrollView {
     let scrollView = NSTextView.scrollableTextView()
@@ -98,7 +106,7 @@ private struct SelectableTextViewRepresentable: NSViewRepresentable {
     textView.isSelectable = true
     textView.drawsBackground = false
     textView.textContainerInset = NSSize(width: 0, height: 0)
-    textView.textStorage?.setAttributedString(selectionAttributedString(for: text))
+    textView.textStorage?.setAttributedString(selectionAttributedString(for: text, fonts: fonts))
 
     DispatchQueue.main.async {
       textView.setSelectedRange(firstParagraphRange(in: text))
@@ -109,8 +117,8 @@ private struct SelectableTextViewRepresentable: NSViewRepresentable {
 
   func updateNSView(_ scrollView: NSScrollView, context: Context) {
     guard let textView = scrollView.documentView as? NSTextView else { return }
-    if textView.string != text {
-      textView.textStorage?.setAttributedString(selectionAttributedString(for: text))
+    if textView.string != text || textView.font != fonts.normal {
+      textView.textStorage?.setAttributedString(selectionAttributedString(for: text, fonts: fonts))
     }
   }
 }

@@ -31,6 +31,9 @@ struct BlockMathView: UIViewRepresentable {
 
   func updateUIView(_ uiView: MTMathUILabel, context: Context) {
     uiView.textColor = UIColor(color)
+    // Before `latex`: the label re-lays out on assignment, and the point size
+    // moves whenever the reader changes their text size.
+    uiView.fontSize = pointSize
     uiView.latex = latex
   }
 
@@ -67,6 +70,7 @@ struct BlockMathView: NSViewRepresentable {
 
   func updateNSView(_ nsView: MTMathUILabel, context: Context) {
     nsView.textColor = NSColor(color)
+    nsView.fontSize = pointSize
     nsView.latex = latex
   }
 

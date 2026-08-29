@@ -165,59 +165,48 @@ final class MarkdownTextTests: XCTestCase {
 
   // MARK: - BlockQuote Citation Integration Tests
 
-  /// Tests that BlockQuote correctly renders attachment citations without showing UUIDs
+  /// A citation inside a block quote shows its title, never the raw marker.
+  ///
+  /// Two shapes go in: one citation carrying a `citationTitle` (rendered as an
+  /// attachment chip) and one plain link that merely mentions a marker
+  /// (rendered as ordinary link text). Either way the reader must see a name —
+  /// "Microsoft", "Google" — and never the `9F742443` marker.
+  ///
+  /// Reads the quote through `convert(with:)`, the same route the view takes,
+  /// since block quotes now build a real attributed string rather than a
+  /// flattened plain one (see `BlockQuoteContentTests`).
   func testBlockQuoteWithAttachmentCitations() async throws {
     let markdown = """
     > This quote contains an attachment citation [9F742443](http://example.com?citationMarker=9F742443&citationTitle=Microsoft&citationA11yValue=Microsoft) and regular citation [Google](http://example.com?citationMarker=9F742443)
     """
 
-    let document = await parser.parse(text: markdown)
+    let renderables = await parser.parse(text: markdown).convert(with: .default)
 
-    // Find the BlockQuote in the parsed document
-    var blockQuote: BlockQuote?
-    for child in document.children {
-      if let foundBlockQuote = child as? BlockQuote {
-        blockQuote = foundBlockQuote
-        break
+    // The quote's inline content, as the attributed string the view renders.
+    guard case .blockQuote(_, let item) = renderables.first,
+          case .nested(let children) = item.quoteType,
+          case .text(let content) = children.first else {
+      return XCTFail("Expected a block quote with text content")
+    }
+
+    // The titled citation became a chip carrying its title.
+    var citationTitles: [String] = []
+    content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length)) { value, _, _ in
+      if let title = (value as? InlineCitationAttachment)?.citationData?.title {
+        citationTitles.append(title)
       }
     }
+    XCTAssertEqual(citationTitles, ["Microsoft"])
 
-    guard let blockQuote = blockQuote else {
-      XCTFail("Expected to find a BlockQuote in the parsed markdown")
-      return
-    }
-
-    // Test the quoteTypes property (this was the main bug)
-    let quoteTypes = blockQuote.quoteTypes
-
-    // Extract the text from the quote types
-    var extractedText = ""
-    switch quoteTypes {
-    case .nested(let types):
-      for type in types {
-        switch type {
-        case .text(let text):
-          extractedText = text
-        default:
-          break
-        }
-      }
-    default:
-      XCTFail("Expected nested quote types")
-    }
-
-    // Verify that the extracted text contains the citation titles, not UUIDs
+    // The plain link stayed readable text...
     XCTAssertTrue(
-      extractedText.contains("Microsoft"),
-      "BlockQuote should show attachment citation title 'Microsoft', not UUID. Got: '\(extractedText)'"
+      content.string.contains("Google"),
+      "BlockQuote should show the regular citation's text 'Google'. Got: '\(content.string)'"
     )
-    XCTAssertTrue(
-      extractedText.contains("Google"),
-      "BlockQuote should show regular citation title 'Google'. Got: '\(extractedText)'"
-    )
+    // ...and the marker never reaches the reader, in either shape.
     XCTAssertFalse(
-      extractedText.contains("9F742443"),
-      "BlockQuote should NOT show the UUID marker in plain text. Got: '\(extractedText)'"
+      content.string.contains("9F742443"),
+      "BlockQuote should NOT show the marker in its text. Got: '\(content.string)'"
     )
   }
 

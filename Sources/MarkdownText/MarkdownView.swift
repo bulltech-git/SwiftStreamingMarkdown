@@ -28,19 +28,42 @@ public struct MarkdownView: View {
   ) {
     self.text = text
     self.config = config
-    _controller = StateObject(wrappedValue: MarkdownViewController(config: config, listener: listener))
+    _controller = StateObject(wrappedValue: MarkdownViewController(listener: listener))
   }
 
   public var body: some View {
-    Group {
-      if let renderable = controller.renderable {
-        DocumentView(renderableDocument: renderable, config: config, listener: controller.listener)
-      } else {
-        DocumentView(renderableDocument: .empty, config: config, listener: controller.listener)
-      }
-    }
-    .task(id: text) {
-      await controller.parse(text: text)
+    // The Dynamic Type read lives one level down, in a plain (non-`@Equatable`)
+    // view: this one declares its own equality, so SwiftUI is free to skip its
+    // body when nothing but the environment changed.
+    ScaledMarkdownView(text: text, config: config, controller: controller)
+  }
+}
+
+/// Parses and renders on behalf of `MarkdownView`, re-parsing whenever the text
+/// *or* the Dynamic Type size changes — paragraph fonts are baked into the
+/// attributed strings at parse time, so a text-size change is a re-parse.
+private struct ScaledMarkdownView: View {
+
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+  let text: String
+  let config: MarkdownRenderConfig
+  @ObservedObject var controller: MarkdownViewController
+
+  /// `.task` identity: either half invalidates the parsed document.
+  private struct ParseKey: Equatable {
+    let text: String
+    let dynamicTypeSize: DynamicTypeSize
+  }
+
+  var body: some View {
+    // `config` is passed on unscaled: `DocumentView` scales what it publishes to
+    // the tree, so scaling it here as well would compound.
+    DocumentView(renderableDocument: controller.renderable ?? .empty,
+                 config: config,
+                 listener: controller.listener)
+    .task(id: ParseKey(text: text, dynamicTypeSize: dynamicTypeSize)) {
+      await controller.parse(text: text, config: config.scaled(for: dynamicTypeSize))
     }
   }
 }
@@ -49,17 +72,18 @@ final class MarkdownViewController: ObservableObject {
 
   @Published var renderable: RenderableDocument?
 
-  private let config: MarkdownRenderConfig
   private let parser = MarkdownParserImpl()
 
   let listener: MarkdownListener?
 
-  init(config: MarkdownRenderConfig = .default, listener: MarkdownListener? = nil) {
-    self.config = config
+  init(listener: MarkdownListener? = nil) {
     self.listener = listener
   }
 
-  func parse(text: String) async {
+  /// Parses `text` with the Dynamic Type-scaled config supplied by the view.
+  /// The config is a parameter rather than stored state because it follows the
+  /// reader's text size, which can change at any moment.
+  func parse(text: String, config: MarkdownRenderConfig) async {
     let renderable = await parser.parse(text: text, config: config)
     await MainActor.run {
       self.renderable = renderable

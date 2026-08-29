@@ -45,11 +45,35 @@ public struct StreamedMarkdownView: View {
   }
 
   public var body: some View {
+    // The Dynamic Type read lives one level down, in a plain (non-`@Equatable`)
+    // view: this one declares its own equality, so SwiftUI is free to skip its
+    // body when nothing but the environment changed.
+    ScaledStreamedMarkdownView(config: config, controller: controller)
+  }
+}
+
+/// Renders on behalf of `StreamedMarkdownView` and keeps the controller's parse
+/// config in step with the reader's text size — paragraph fonts are baked into
+/// the attributed strings at parse time, so a text-size change re-parses the
+/// latest snapshot without disturbing the running stream.
+private struct ScaledStreamedMarkdownView: View {
+
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+  let config: MarkdownRenderConfig
+  @ObservedObject var controller: StreamedMarkdownController
+
+  var body: some View {
+    // `config` is passed on unscaled: `DocumentView` scales what it publishes to
+    // the tree, so scaling it here as well would compound.
     DocumentView(
       renderableDocument: controller.markdownToRender,
       config: config,
       listener: controller.listener
     )
+    .task(id: dynamicTypeSize) {
+      await controller.setParseConfig(config.scaled(for: dynamicTypeSize))
+    }
     .task {
       await controller.start()
     }
@@ -64,8 +88,15 @@ public struct StreamedMarkdownView: View {
 final class StreamedMarkdownController: ObservableObject {
 
   @Published var markdownToRender: RenderableDocument = .empty
-  let config: MarkdownRenderConfig
   let listener: MarkdownListener?
+
+  /// The config every snapshot is parsed with, already scaled for the reader's
+  /// text size. Locked: the view writes it from the main actor while the
+  /// streaming task reads it off it.
+  @WithLock private var config: MarkdownRenderConfig
+  /// The most recent snapshot, kept so a text-size change can re-parse it
+  /// without touching the stream, which yields only once per emission.
+  @WithLock private var latestText: String? = nil
 
   private let source: StreamedMarkdownSource
   private let parser = MarkdownParserImpl()
@@ -87,12 +118,24 @@ final class StreamedMarkdownController: ObservableObject {
       guard let self else { return }
       for await text in self.source.text {
         if Task.isCancelled { return }
+        self.latestText = text
         let renderable = await self.parser.parse(text: text, config: self.config)
         if Task.isCancelled { return }
         await MainActor.run {
           self.markdownToRender = renderable
         }
       }
+    }
+  }
+
+  /// Adopts a new parse config and re-renders the latest snapshot with it.
+  func setParseConfig(_ config: MarkdownRenderConfig) async {
+    guard self.config != config else { return }
+    self.config = config
+    guard let text = latestText else { return }
+    let renderable = await parser.parse(text: text, config: config)
+    await MainActor.run {
+      self.markdownToRender = renderable
     }
   }
 
