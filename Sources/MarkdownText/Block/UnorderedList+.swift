@@ -13,7 +13,7 @@ extension UnorderedList: BlockConvertible {
     let nodes: [ListItem] = self.children.compactMap { $0 as? ListItem }
     var items: [MarkdownListItem] = []
     for listItem in nodes {
-      items.append(MarkdownListItem(children: listItem.blockConvertibleChildren.map { $0.convert(attributeContainer: attributeContainer, config: config) },
+      items.append(MarkdownListItem(children: listItem.convertedBlockChildren(attributeContainer: attributeContainer, config: config),
                                     startsWithBold: listItem.startsWithBold,
                                     checkbox: listItem.checkBox ))
     }

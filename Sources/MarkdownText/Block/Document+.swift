@@ -10,8 +10,6 @@ import SwiftUI
 extension Markdown.Document {
 
   func convert(with config: MarkdownRenderConfig) -> [MarkdownRenderable] {
-    return self
-      .blockConvertibleChildren
-      .map { $0.convert(attributeContainer: NSAttributeContainer(), config: config) }
+    return self.convertedBlockChildren(attributeContainer: NSAttributeContainer(), config: config)
   }
 }

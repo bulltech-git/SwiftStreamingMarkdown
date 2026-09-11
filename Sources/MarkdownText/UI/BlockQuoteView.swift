@@ -40,6 +40,10 @@ private struct InternalBlockQuoteView: View {
               .fixedSize(horizontal: false, vertical: true)
           }
           .fixedSize(horizontal: false, vertical: true)
+        case .block(let renderable):
+          SingleBlockView(renderable: renderable)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
         }
       }
       .padding(.vertical, 4.0)
@@ -76,10 +80,16 @@ struct QuoteDivider: View {
 indirect enum BlockQuoteType: Equatable {
   case text(NSMutableAttributedString)
   case nested([BlockQuoteType])
+  /// A non-inline child of the quote — a list, code block, table, rule — kept
+  /// as a full renderable so it draws through `SingleBlockView` like it would
+  /// outside the quote. Before this case existed such children were dropped.
+  case block(MarkdownRenderable)
 
+  /// Whether this node draws the quote's vertical bar. Only the wrapper that
+  /// holds a quote's children does; the children themselves sit inside it.
   var isNested: Bool {
     switch self {
-    case .text:
+    case .text, .block:
       false
     case .nested:
       true

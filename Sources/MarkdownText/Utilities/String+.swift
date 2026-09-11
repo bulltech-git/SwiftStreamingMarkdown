@@ -280,3 +280,24 @@ extension Markup {
     }
   }
 }
+
+extension String {
+  /// The readable text of a raw HTML fragment: tags removed, entities decoded.
+  /// Used when a markdown block has no dedicated view and would otherwise be
+  /// dropped — showing the words is always better than showing nothing.
+  var strippingHTMLTags: String {
+    let withoutTags = replacingOccurrences(of: "<[^>]+>",
+                                           with: " ",
+                                           options: .regularExpression)
+    let decoded = withoutTags
+      .replacingOccurrences(of: "&nbsp;", with: " ")
+      .replacingOccurrences(of: "&lt;", with: "<")
+      .replacingOccurrences(of: "&gt;", with: ">")
+      .replacingOccurrences(of: "&quot;", with: "\"")
+      .replacingOccurrences(of: "&#39;", with: "'")
+      .replacingOccurrences(of: "&amp;", with: "&")
+    return decoded
+      .replacingOccurrences(of: "[ \\t]+", with: " ", options: .regularExpression)
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+}

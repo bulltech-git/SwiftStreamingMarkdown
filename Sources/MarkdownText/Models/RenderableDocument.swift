@@ -122,6 +122,8 @@ private extension BlockQuoteType {
       return content.string
     case .nested(let items):
       return items.map { $0.plainText }.joined(separator: "\n")
+    case .block(let renderable):
+      return renderable.plainText ?? ""
     }
   }
 }

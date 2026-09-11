@@ -75,3 +75,114 @@ final class BlockQuoteContentTests: XCTestCase {
                    "the quote's own text color (config.blockQuoteStyle.textColor) must still apply, same as before")
   }
 }
+
+/// Regression coverage for a block quote keeping *every* child, not just its
+/// inline ones.
+///
+/// THE BUG: `quoteTypes` walked a quote's children and handled exactly two
+/// shapes — an `InlineContainer` (paragraph/heading) and a nested `BlockQuote`.
+/// Every other child fell off the end of the `if` chain and was gone. A quote
+/// whose body was a list is the common case in a real answer:
+///
+///     >DEFINITIONS
+///     >- **Sinoatrial (SA) Node**: the heart's natural pacemaker.
+///
+/// rendered as the single word "DEFINITIONS". Upstream can afford to drop a
+/// block mid-stream because the next chunk redraws the document; this fork
+/// renders finished answers, where a dropped block is just missing content.
+final class BlockQuoteCompletenessTests: XCTestCase {
+
+  private let parser = MarkdownParserImpl()
+
+  private func quoteChildren(_ renderables: [MarkdownRenderable]) -> [BlockQuoteType] {
+    guard case .blockQuote(_, let item) = renderables.first,
+          case .nested(let children) = item.quoteType else {
+      return []
+    }
+    return children
+  }
+
+  func test_listInsideQuote_isKept() async {
+    let markdown = """
+    >DEFINITIONS
+    >- **Sinoatrial (SA) Node**: the heart's natural pacemaker.
+    >- **Arrhythmia**: any disruption of the heartbeat.
+    """
+    let document = await parser.parse(text: markdown)
+    let children = quoteChildren(document.convert(with: .default))
+
+    XCTAssertEqual(children.count, 2, "the quote must keep both its paragraph and its list, not only the paragraph")
+
+    guard children.count == 2, case .block(let renderable) = children[1],
+          case .unorderedList(_, let items, _) = renderable else {
+      return XCTFail("Expected the quote's second child to be an unordered list, got \(children.dropFirst().first as Any)")
+    }
+    XCTAssertEqual(items.count, 2)
+  }
+
+  func test_listInsideQuote_keepsItemTextAndBold() async {
+    let document = await parser.parse(text: ">DEFINITIONS\n>- **Arrhythmia**: any disruption of the heartbeat.")
+    let children = quoteChildren(document.convert(with: .default))
+
+    guard case .block(let renderable) = children.last,
+          case .unorderedList(_, let items, _) = renderable,
+          case .paragraph(_, let content) = items.first?.children.first else {
+      return XCTFail("Expected a list item paragraph inside the quote")
+    }
+
+    XCTAssertTrue(content.string.contains("Arrhythmia"))
+    XCTAssertTrue(content.string.contains("any disruption of the heartbeat."))
+    XCTAssertTrue(items.first?.startsWithBold == true, "the item's leading bold term must survive into the quote")
+  }
+
+  func test_orderedListCodeBlockAndRuleInsideQuote_areKept() async {
+    let markdown = """
+    > intro
+    >
+    > 1. first
+    > 2. second
+    >
+    > ```swift
+    > let x = 1
+    > ```
+    >
+    > ---
+    """
+    let document = await parser.parse(text: markdown)
+    let children = quoteChildren(document.convert(with: .default))
+
+    let kinds = children.compactMap { child -> String? in
+      switch child {
+      case .text: return "text"
+      case .nested: return "nested"
+      case .block(let renderable):
+        switch renderable {
+        case .orderedList: return "orderedList"
+        case .codeBlock: return "codeBlock"
+        case .thematicBreak: return "thematicBreak"
+        default: return "other"
+        }
+      }
+    }
+    XCTAssertEqual(kinds, ["text", "orderedList", "codeBlock", "thematicBreak"],
+                   "no block kind may be dropped just because it is inside a quote")
+  }
+
+  func test_quotedListContributesToPlainText() async {
+    let document = await parser.parse(text: ">DEFINITIONS\n>- **Arrhythmia**: any disruption of the heartbeat.")
+    let renderable = RenderableDocument(renderables: document.convert(with: .default))
+
+    XCTAssertTrue(renderable.plainText.contains("Arrhythmia"),
+                  "text selection and copy must see the quoted list too")
+  }
+
+  func test_rawHTMLBlock_fallsBackToItsTextInsteadOfVanishing() async {
+    let document = await parser.parse(text: "<div class=\"note\">Heads up &amp; take care</div>")
+    let renderables = document.convert(with: .default)
+
+    guard case .paragraph(_, let content) = renderables.first else {
+      return XCTFail("Expected the HTML block to survive as a paragraph, got \(renderables)")
+    }
+    XCTAssertEqual(content.string, "Heads up & take care")
+  }
+}
