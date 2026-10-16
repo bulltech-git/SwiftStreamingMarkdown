@@ -208,6 +208,7 @@ extension MarkdownRenderConfig {
       codeBlockConfig: codeBlockConfig.scaled(for: dynamicTypeSize),
       blockSpacing: blockSpacing,
       textSelectionConfig: textSelectionConfig,
+      textSelectionMenuStyle: textSelectionMenuStyle,
       thematicBreakColor: thematicBreakColor,
       imageConfig: imageConfig
     )

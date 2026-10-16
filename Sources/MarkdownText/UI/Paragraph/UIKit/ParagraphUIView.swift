@@ -31,6 +31,8 @@ class ParagraphUIView: UITextView {
 
   var textContextMenu: TextContextMenu?
   var markdownController: MarkdownController?
+  private var textSelectionMenuStyle: TextSelectionMenuStyle = .system
+  private var canSelectMore = false
 
   // To override the behaviour of this property, do so on ParagraphView's SwiftUI wrapper.
   var onUrlTap: (URL) -> Void = { UIApplication.shared.open($0) }
@@ -346,6 +348,38 @@ class ParagraphUIView: UITextView {
   func setMarkdownController(_ controller: MarkdownController?) {
     markdownController = controller
   }
+
+  func setTextSelectionMenuStyle(_ style: TextSelectionMenuStyle, canSelectMore: Bool) {
+    textSelectionMenuStyle = style
+    self.canSelectMore = canSelectMore
+  }
+
+  /// Packs the current selection for `MarkdownListener.onSelectionMenuRequest`.
+  func makeSelectionMenuRequest(for range: NSRange) -> TextSelectionMenuRequest {
+    let clampedRange = NSIntersectionRange(range, NSRange(location: 0, length: attributedText.length))
+    return TextSelectionMenuRequest(
+      selectedContent: attributedText.attributedSubstring(from: clampedRange).string,
+      anchorRect: selectionBoundsInWindow(for: clampedRange),
+      canSelectMore: canSelectMore,
+      selectMore: { [weak controller = markdownController] in controller?.requestTextSelection() },
+      clearSelection: { [weak self] in self?.selectedTextRange = nil }
+    )
+  }
+
+  /// Union of the selection's line rects, in window coordinates. Falls back to
+  /// the whole paragraph when the range can't be placed (e.g. mid-relayout).
+  private func selectionBoundsInWindow(for range: NSRange) -> CGRect {
+    guard let start = position(from: beginningOfDocument, offset: range.location),
+          let end = position(from: start, offset: range.length),
+          let textRange = textRange(from: start, to: end) else {
+      return convert(bounds, to: nil)
+    }
+    let union = selectionRects(for: textRange)
+      .map(\.rect)
+      .filter { !$0.isEmpty }
+      .reduce(CGRect.null) { $0.union($1) }
+    return convert(union.isNull ? bounds : union, to: nil)
+  }
 }
 
 // MARK: - UITextViewDelegate
@@ -374,6 +408,13 @@ extension ParagraphUIView: UITextViewDelegate {
   #endif
 
   func textView(_ textView: UITextView, editMenuForTextIn range: NSRange, suggestedActions: [UIMenuElement]) -> UIMenu? {
+    // The host presents its own menu: hand it the selection and show nothing.
+    // Without a controller there is nobody to hand it to, so the system menu
+    // stays rather than leaving a selection with no menu at all.
+    if textSelectionMenuStyle == .custom, let markdownController {
+      markdownController.onSelectionMenuRequest(makeSelectionMenuRequest(for: range))
+      return UIMenu(children: [])
+    }
     guard let textContextMenu else { return nil }
     return textContextMenu.buildUIMenu(
       textView: textView,

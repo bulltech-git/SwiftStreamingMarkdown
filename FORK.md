@@ -23,6 +23,22 @@ reads right-to-left on an English phone, and vice versa.
 
 Covered by `Tests/MarkdownTextTests/RightToLeftAlignmentTests.swift`.
 
+## Host-presented selection menu
+
+`MarkdownRenderConfig.textSelectionMenuStyle = .custom` (default `.system`)
+shows no edit menu when text is selected; the selection is handed to
+`MarkdownListener.onSelectionMenuRequest(_:)` as a `TextSelectionMenuRequest`
+(text, anchor rect in window coordinates, `selectMore()`, `clearSelection()`),
+so the host can present its own menu. The app uses it to open the same message
+panel a long press opens anywhere else on the message. UIKit only; AppKit keeps
+its native right-click menu. Generic and opt-in — a candidate to send upstream.
+
+Same commit fixes an upstream bug: every `with…` builder except
+`withImageConfig` dropped `imageConfig` back to `.disabled`.
+
+Covered by `Tests/MarkdownTextTests/TextSelectionMenuStyleTests.swift` (iOS
+simulator destination — the UIKit half doesn't build for the macOS host).
+
 ## How the app consumes it
 
 The three Xcode projects (`MakeNess_iOS`, `MakeNess_mac`, `MakeNess_visionOS`)

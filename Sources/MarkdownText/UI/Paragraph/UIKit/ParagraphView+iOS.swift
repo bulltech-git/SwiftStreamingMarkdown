@@ -25,6 +25,7 @@ struct ParagraphView: UIViewRepresentable {
     view.setParagraphContents(contents, lineSpacing: lineSpacing, animatedByWord: false)
     view.setTextContextMenu(config.resolvedTextContextMenu)
     view.setMarkdownController(markdownController)
+    view.setTextSelectionMenuStyle(config.textSelectionMenuStyle, canSelectMore: config.textSelectionConfig.isEnabled)
 
     if config.shouldAnimateText {
       view.alpha = 0
@@ -43,6 +44,7 @@ struct ParagraphView: UIViewRepresentable {
     }
     view.setTextContextMenu(config.resolvedTextContextMenu)
     view.setMarkdownController(markdownController)
+    view.setTextSelectionMenuStyle(config.textSelectionMenuStyle, canSelectMore: config.textSelectionConfig.isEnabled)
   }
 
   // If we don't implement this function, the snapshot tests will fail with incorrect sizing.

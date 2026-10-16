@@ -22,7 +22,9 @@ extension MarkdownRenderConfig {
       codeBlockConfig: codeBlockConfig,
       blockSpacing: blockSpacing,
       textSelectionConfig: textSelectionConfig,
-      thematicBreakColor: thematicBreakColor
+      textSelectionMenuStyle: textSelectionMenuStyle,
+      thematicBreakColor: thematicBreakColor,
+      imageConfig: imageConfig
     )
   }
 
@@ -41,7 +43,9 @@ extension MarkdownRenderConfig {
       codeBlockConfig: codeBlockConfig,
       blockSpacing: blockSpacing,
       textSelectionConfig: textSelectionConfig,
-      thematicBreakColor: thematicBreakColor
+      textSelectionMenuStyle: textSelectionMenuStyle,
+      thematicBreakColor: thematicBreakColor,
+      imageConfig: imageConfig
     )
   }
 
@@ -60,7 +64,9 @@ extension MarkdownRenderConfig {
       codeBlockConfig: codeBlockConfig,
       blockSpacing: blockSpacing,
       textSelectionConfig: textSelectionConfig,
-      thematicBreakColor: thematicBreakColor
+      textSelectionMenuStyle: textSelectionMenuStyle,
+      thematicBreakColor: thematicBreakColor,
+      imageConfig: imageConfig
     )
   }
 
@@ -79,7 +85,9 @@ extension MarkdownRenderConfig {
       codeBlockConfig: codeBlockConfig,
       blockSpacing: blockSpacing,
       textSelectionConfig: textSelectionConfig,
-      thematicBreakColor: thematicBreakColor
+      textSelectionMenuStyle: textSelectionMenuStyle,
+      thematicBreakColor: thematicBreakColor,
+      imageConfig: imageConfig
     )
   }
 
@@ -98,7 +106,9 @@ extension MarkdownRenderConfig {
       codeBlockConfig: codeBlockConfig,
       blockSpacing: blockSpacing,
       textSelectionConfig: textSelectionConfig,
-      thematicBreakColor: thematicBreakColor
+      textSelectionMenuStyle: textSelectionMenuStyle,
+      thematicBreakColor: thematicBreakColor,
+      imageConfig: imageConfig
     )
   }
 
@@ -117,7 +127,9 @@ extension MarkdownRenderConfig {
       codeBlockConfig: codeBlockConfig,
       blockSpacing: blockSpacing,
       textSelectionConfig: textSelectionConfig,
-      thematicBreakColor: thematicBreakColor
+      textSelectionMenuStyle: textSelectionMenuStyle,
+      thematicBreakColor: thematicBreakColor,
+      imageConfig: imageConfig
     )
   }
 
@@ -136,7 +148,9 @@ extension MarkdownRenderConfig {
       codeBlockConfig: codeBlockConfig,
       blockSpacing: blockSpacing,
       textSelectionConfig: textSelectionConfig,
-      thematicBreakColor: thematicBreakColor
+      textSelectionMenuStyle: textSelectionMenuStyle,
+      thematicBreakColor: thematicBreakColor,
+      imageConfig: imageConfig
     )
   }
 
@@ -156,7 +170,9 @@ extension MarkdownRenderConfig {
       codeBlockConfig: codeBlockConfig,
       blockSpacing: blockSpacing,
       textSelectionConfig: textSelectionConfig,
-      thematicBreakColor: thematicBreakColor
+      textSelectionMenuStyle: textSelectionMenuStyle,
+      thematicBreakColor: thematicBreakColor,
+      imageConfig: imageConfig
     )
   }
 
@@ -175,7 +191,9 @@ extension MarkdownRenderConfig {
       codeBlockConfig: codeBlockConfig,
       blockSpacing: value,
       textSelectionConfig: textSelectionConfig,
-      thematicBreakColor: thematicBreakColor
+      textSelectionMenuStyle: textSelectionMenuStyle,
+      thematicBreakColor: thematicBreakColor,
+      imageConfig: imageConfig
     )
   }
 
@@ -194,7 +212,9 @@ extension MarkdownRenderConfig {
       codeBlockConfig: value,
       blockSpacing: blockSpacing,
       textSelectionConfig: textSelectionConfig,
-      thematicBreakColor: thematicBreakColor
+      textSelectionMenuStyle: textSelectionMenuStyle,
+      thematicBreakColor: thematicBreakColor,
+      imageConfig: imageConfig
     )
   }
 
@@ -214,7 +234,9 @@ extension MarkdownRenderConfig {
       codeBlockConfig: codeBlockConfig,
       blockSpacing: blockSpacing,
       textSelectionConfig: value,
-      thematicBreakColor: thematicBreakColor
+      textSelectionMenuStyle: textSelectionMenuStyle,
+      thematicBreakColor: thematicBreakColor,
+      imageConfig: imageConfig
     )
   }
 
@@ -233,7 +255,9 @@ extension MarkdownRenderConfig {
       codeBlockConfig: codeBlockConfig,
       blockSpacing: blockSpacing,
       textSelectionConfig: textSelectionConfig,
-      thematicBreakColor: value
+      textSelectionMenuStyle: textSelectionMenuStyle,
+      thematicBreakColor: value,
+      imageConfig: imageConfig
     )
   }
 
@@ -252,8 +276,31 @@ extension MarkdownRenderConfig {
       codeBlockConfig: codeBlockConfig,
       blockSpacing: blockSpacing,
       textSelectionConfig: textSelectionConfig,
+      textSelectionMenuStyle: textSelectionMenuStyle,
       thematicBreakColor: thematicBreakColor,
       imageConfig: value
+    )
+  }
+
+  /// Returns a copy with `textSelectionMenuStyle` replaced. Pass `.custom` to
+  /// present your own menu on text selection instead of the system edit menu.
+  public func withTextSelectionMenuStyle(_ value: TextSelectionMenuStyle) -> MarkdownRenderConfig {
+    MarkdownRenderConfig(
+      shouldAnimateText: shouldAnimateText,
+      blockQuoteStyle: blockQuoteStyle,
+      headingStyle: headingStyle,
+      orderedListStyle: orderedListStyle,
+      paragraphStyle: paragraphStyle,
+      tableStyle: tableStyle,
+      inlineStyle: inlineStyle,
+      textContextMenu: textContextMenu,
+      citationConfig: citationConfig,
+      codeBlockConfig: codeBlockConfig,
+      blockSpacing: blockSpacing,
+      textSelectionConfig: textSelectionConfig,
+      textSelectionMenuStyle: value,
+      thematicBreakColor: thematicBreakColor,
+      imageConfig: imageConfig
     )
   }
 }

@@ -23,10 +23,17 @@ public protocol MarkdownListener {
   ///
   /// - Important: Image support is **experimental**.
   func resolveBundledResource(fileName: String, ext: String?) -> URL?
+
+  /// Called instead of showing the system edit menu when the render config
+  /// uses `TextSelectionMenuStyle.custom`: present your own menu for
+  /// `request.selectedContent` near `request.anchorRect`, and call
+  /// `request.clearSelection()` when it goes away. Defaults to doing nothing.
+  func onSelectionMenuRequest(_ request: TextSelectionMenuRequest) async
 }
 
 public extension MarkdownListener {
   func resolveBundledResource(fileName: String, ext: String?) -> URL? { nil }
+  func onSelectionMenuRequest(_ request: TextSelectionMenuRequest) async {}
 }
 
 public final class MarkdownController: ObservableObject {
@@ -105,6 +112,13 @@ public final class MarkdownController: ObservableObject {
   func onImageTap(image: MarkdownImage) {
     Task {
       await listener?.onImageTap(image: image)
+    }
+  }
+
+  @MainActor
+  func onSelectionMenuRequest(_ request: TextSelectionMenuRequest) {
+    Task { @MainActor in
+      await listener?.onSelectionMenuRequest(request)
     }
   }
 

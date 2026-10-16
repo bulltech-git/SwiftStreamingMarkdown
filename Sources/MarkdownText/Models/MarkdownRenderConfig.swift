@@ -40,6 +40,9 @@ public struct MarkdownRenderConfig: Hashable, Sendable {
   /// Configuration for the built-in "Select more text" edit-menu action and the
   /// modal it presents. Enabled by default.
   public let textSelectionConfig: TextSelectionConfig
+  /// Who presents the menu after a text selection: the system edit menu
+  /// (default) or the host, through `MarkdownListener.onSelectionMenuRequest`.
+  public let textSelectionMenuStyle: TextSelectionMenuStyle
   /// Color of the horizontal rule rendered for a thematic break (`---`).
   public let thematicBreakColor: Color
 
@@ -282,6 +285,7 @@ public struct MarkdownRenderConfig: Hashable, Sendable {
     codeBlockConfig: CodeBlockConfig = .default,
     blockSpacing: CGFloat = MarkdownRenderConfig.defaultBlockSpacing,
     textSelectionConfig: TextSelectionConfig = .default,
+    textSelectionMenuStyle: TextSelectionMenuStyle = .system,
     thematicBreakColor: Color = MarkdownRenderConfig.defaultThematicBreakColor,
     imageConfig: ImageConfig = .disabled
   ) {
@@ -297,6 +301,7 @@ public struct MarkdownRenderConfig: Hashable, Sendable {
     self.codeBlockConfig = codeBlockConfig
     self.blockSpacing = blockSpacing
     self.textSelectionConfig = textSelectionConfig
+    self.textSelectionMenuStyle = textSelectionMenuStyle
     self.thematicBreakColor = thematicBreakColor
     self.imageConfig = imageConfig
   }
