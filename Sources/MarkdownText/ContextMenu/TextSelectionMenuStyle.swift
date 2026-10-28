@@ -4,6 +4,7 @@
 //
 
 import CoreGraphics
+import Foundation
 
 /// Who presents the menu that follows a text selection.
 public enum TextSelectionMenuStyle: Hashable, Sendable {
@@ -27,6 +28,12 @@ public enum TextSelectionMenuStyle: Hashable, Sendable {
 ///
 /// The selection stays highlighted until the host calls `clearSelection()`,
 /// so the reader can see what the host's menu will act on.
+///
+/// The request ends when the reader changes or clears that selection — drags
+/// a handle, taps elsewhere — and the listener hears it through
+/// `MarkdownListener.onSelectionMenuEnd(_:)`. A request that has ended, or
+/// that a newer request for the same text replaced, no longer owns the
+/// highlight: its `clearSelection()` does nothing.
 @MainActor
 public final class TextSelectionMenuRequest {
   /// The selected text, as plain text.
@@ -40,6 +47,12 @@ public final class TextSelectionMenuRequest {
   /// `TextSelectionConfig.isEnabled` is `false`.
   public let canSelectMore: Bool
 
+  /// The range the request was made for, in its paragraph's text.
+  let selectedRange: NSRange
+
+  /// `false` once the selection has moved on from this request.
+  private(set) var isCurrent = true
+
   private let onSelectMore: @MainActor () -> Void
   private let onClearSelection: @MainActor () -> Void
 
@@ -47,12 +60,14 @@ public final class TextSelectionMenuRequest {
     selectedContent: String,
     anchorRect: CGRect,
     canSelectMore: Bool,
+    selectedRange: NSRange,
     selectMore: @escaping @MainActor () -> Void,
     clearSelection: @escaping @MainActor () -> Void
   ) {
     self.selectedContent = selectedContent
     self.anchorRect = anchorRect
     self.canSelectMore = canSelectMore
+    self.selectedRange = selectedRange
     self.onSelectMore = selectMore
     self.onClearSelection = clearSelection
   }
@@ -65,7 +80,16 @@ public final class TextSelectionMenuRequest {
   }
 
   /// Removes the selection highlight. Call it when the host's menu goes away.
+  /// Does nothing once the request has ended, so a stale request never clears
+  /// a selection the reader is still making.
   public func clearSelection() {
+    guard isCurrent else { return }
+    isCurrent = false
     onClearSelection()
+  }
+
+  /// The selection moved on: the reader changed it, or a newer request took over.
+  func end() {
+    isCurrent = false
   }
 }

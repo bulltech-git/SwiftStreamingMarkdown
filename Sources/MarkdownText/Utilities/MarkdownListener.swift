@@ -29,11 +29,19 @@ public protocol MarkdownListener {
   /// `request.selectedContent` near `request.anchorRect`, and call
   /// `request.clearSelection()` when it goes away. Defaults to doing nothing.
   func onSelectionMenuRequest(_ request: TextSelectionMenuRequest) async
+
+  /// The reader changed or cleared the selection `request` was made for —
+  /// dragged a handle, tapped elsewhere, or the text left the screen. Hide the
+  /// menu shown for it. A handle drag that ends with text still selected is
+  /// followed by a new `onSelectionMenuRequest(_:)`, the way the system menu
+  /// comes back there. Defaults to doing nothing.
+  func onSelectionMenuEnd(_ request: TextSelectionMenuRequest) async
 }
 
 public extension MarkdownListener {
   func resolveBundledResource(fileName: String, ext: String?) -> URL? { nil }
   func onSelectionMenuRequest(_ request: TextSelectionMenuRequest) async {}
+  func onSelectionMenuEnd(_ request: TextSelectionMenuRequest) async {}
 }
 
 public final class MarkdownController: ObservableObject {
@@ -119,6 +127,13 @@ public final class MarkdownController: ObservableObject {
   func onSelectionMenuRequest(_ request: TextSelectionMenuRequest) {
     Task { @MainActor in
       await listener?.onSelectionMenuRequest(request)
+    }
+  }
+
+  @MainActor
+  func onSelectionMenuEnd(_ request: TextSelectionMenuRequest) {
+    Task { @MainActor in
+      await listener?.onSelectionMenuEnd(request)
     }
   }
 

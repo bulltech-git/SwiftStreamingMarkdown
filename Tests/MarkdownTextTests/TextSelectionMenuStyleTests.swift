@@ -13,6 +13,10 @@
 //   • `.custom` shows NO system menu and hands the selection to the listener,
 //     with the selected text, a usable anchor, and working selectMore /
 //     clearSelection callbacks
+//   • the request ends when the reader moves the selection on (drags a
+//     handle, taps elsewhere): the listener is told, so the host can hide its
+//     menu, and the stale request can no longer clear the new selection
+//   • UIKit asking again for the same selection replaces the request quietly
 //   • `.custom` with nobody to hand the selection to keeps the system menu,
 //     because a selection with no menu at all is a dead end for the reader
 //
@@ -127,6 +131,53 @@ final class TextSelectionMenuStyleTests: XCTestCase {
     XCTAssertFalse(controller.isTextSelectionRequested)
   }
 
+  /// A handle drag (or a tap elsewhere) changes the selection the host's menu
+  /// was opened for: the listener hears the request ended, and the stale
+  /// request can no longer clear the selection the reader is making now.
+  @MainActor
+  func testChangingTheSelectionEndsTheRequest() async {
+    let listener = SelectionRecordingListener()
+    let controller = MarkdownController(listener: listener)
+    let view = makeParagraph(style: .custom, controller: controller)
+    view.selectedRange = wonderful
+
+    _ = view.textView(view, editMenuForTextIn: wonderful, suggestedActions: [])
+    let request = await listener.nextRequest()
+
+    let wonderfulWorld = NSRange(location: 6, length: 15)
+    view.selectedRange = wonderfulWorld
+    view.textViewDidChangeSelection(view) // what UIKit calls as the handle moves
+
+    let ended = await listener.nextEnd()
+    XCTAssertTrue(ended === request)
+    request.clearSelection()
+    XCTAssertEqual(view.selectedRange, wonderfulWorld, "a stale request must not clear the new selection")
+  }
+
+  /// UIKit asks again for a selection it already asked about (a tap on it, a
+  /// handle drag that ends). The newer request takes over with no end event,
+  /// and the replaced one can no longer clear the highlight.
+  @MainActor
+  func testNewerRequestForTheSameSelectionTakesOverQuietly() async {
+    let listener = SelectionRecordingListener()
+    let controller = MarkdownController(listener: listener)
+    let view = makeParagraph(style: .custom, controller: controller)
+    view.selectedRange = wonderful
+
+    _ = view.textView(view, editMenuForTextIn: wonderful, suggestedActions: [])
+    let first = await listener.nextRequest()
+    _ = view.textView(view, editMenuForTextIn: wonderful, suggestedActions: [])
+    let second = await listener.nextRequest()
+
+    first.clearSelection()
+    XCTAssertEqual(view.selectedRange, wonderful, "the replaced request must not clear the live selection")
+
+    view.selectedRange = NSRange(location: 0, length: 0)
+    view.textViewDidChangeSelection(view)
+    let ended = await listener.nextEnd()
+    XCTAssertTrue(ended === second, "only the request on screen ends — ends arrive in order, so the first never did")
+  }
+
   /// `.system` keeps today's behavior: the host's items merged into a real menu.
   @MainActor
   func testSystemStyleBuildsTheMergedMenu() {
@@ -150,26 +201,18 @@ final class TextSelectionMenuStyleTests: XCTestCase {
 #endif
 }
 
-/// Records the first selection-menu request it receives.
+/// Records the selection-menu requests it receives, and the ones that end.
 @MainActor
 private final class SelectionRecordingListener: MarkdownListener {
 
-  private var received: TextSelectionMenuRequest?
-  private var continuation: CheckedContinuation<TextSelectionMenuRequest, Never>?
+  private let requests = RequestInbox()
+  private let ends = RequestInbox()
 
-  func nextRequest() async -> TextSelectionMenuRequest {
-    if let received { return received }
-    return await withCheckedContinuation { self.continuation = $0 }
-  }
+  func nextRequest() async -> TextSelectionMenuRequest { await requests.next() }
+  func nextEnd() async -> TextSelectionMenuRequest { await ends.next() }
 
-  func onSelectionMenuRequest(_ request: TextSelectionMenuRequest) async {
-    if let continuation {
-      self.continuation = nil
-      continuation.resume(returning: request)
-    } else {
-      received = request
-    }
-  }
+  func onSelectionMenuRequest(_ request: TextSelectionMenuRequest) async { requests.deliver(request) }
+  func onSelectionMenuEnd(_ request: TextSelectionMenuRequest) async { ends.deliver(request) }
 
   nonisolated func onRender(markdown: RenderableDocument) async {}
   nonisolated func onTableCopyTap(content: String) async {}
@@ -177,4 +220,26 @@ private final class SelectionRecordingListener: MarkdownListener {
   nonisolated func onContextMenuAppear(id: String, selectedContent: String) async {}
   nonisolated func onContextMenuTap(id: String, selectedContent: String) async {}
   nonisolated func onImageTap(image: MarkdownImage) async {}
+}
+
+/// Requests in the order they arrived, handed out one at a time.
+@MainActor
+private final class RequestInbox {
+
+  private var queued: [TextSelectionMenuRequest] = []
+  private var waiter: CheckedContinuation<TextSelectionMenuRequest, Never>?
+
+  func next() async -> TextSelectionMenuRequest {
+    if !queued.isEmpty { return queued.removeFirst() }
+    return await withCheckedContinuation { waiter = $0 }
+  }
+
+  func deliver(_ request: TextSelectionMenuRequest) {
+    if let waiter {
+      self.waiter = nil
+      waiter.resume(returning: request)
+    } else {
+      queued.append(request)
+    }
+  }
 }

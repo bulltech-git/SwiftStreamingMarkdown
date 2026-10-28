@@ -33,6 +33,8 @@ class ParagraphUIView: UITextView {
   var markdownController: MarkdownController?
   private var textSelectionMenuStyle: TextSelectionMenuStyle = .system
   private var canSelectMore = false
+  /// The request whose menu the host is showing, until the selection moves on.
+  private weak var selectionMenuRequest: TextSelectionMenuRequest?
 
   // To override the behaviour of this property, do so on ParagraphView's SwiftUI wrapper.
   var onUrlTap: (URL) -> Void = { UIApplication.shared.open($0) }
@@ -361,6 +363,7 @@ class ParagraphUIView: UITextView {
       selectedContent: attributedText.attributedSubstring(from: clampedRange).string,
       anchorRect: selectionBoundsInWindow(for: clampedRange),
       canSelectMore: canSelectMore,
+      selectedRange: clampedRange,
       selectMore: { [weak controller = markdownController] in controller?.requestTextSelection() },
       clearSelection: { [weak self] in self?.selectedTextRange = nil }
     )
@@ -412,7 +415,12 @@ extension ParagraphUIView: UITextViewDelegate {
     // Without a controller there is nobody to hand it to, so the system menu
     // stays rather than leaving a selection with no menu at all.
     if textSelectionMenuStyle == .custom, let markdownController {
-      markdownController.onSelectionMenuRequest(makeSelectionMenuRequest(for: range))
+      // UIKit asks again for a selection it already asked about (a tap on it,
+      // a handle drag that ends): the newer request takes over, quietly.
+      selectionMenuRequest?.end()
+      let request = makeSelectionMenuRequest(for: range)
+      selectionMenuRequest = request
+      markdownController.onSelectionMenuRequest(request)
       return UIMenu(children: [])
     }
     guard let textContextMenu else { return nil }
@@ -422,6 +430,17 @@ extension ParagraphUIView: UITextViewDelegate {
       suggestedActions: suggestedActions,
       markdownController: markdownController
     )
+  }
+
+  func textViewDidChangeSelection(_ textView: UITextView) {
+    // The reader moved on from the selection the host's menu acts on. Also
+    // fires as that selection itself lands, hence the range check.
+    guard let request = selectionMenuRequest, textView.selectedRange != request.selectedRange else { return }
+    selectionMenuRequest = nil
+    // Already over when the host cleared it itself: nothing to tell.
+    guard request.isCurrent else { return }
+    request.end()
+    markdownController?.onSelectionMenuEnd(request)
   }
 
   func textView(_ textView: UITextView, willPresentEditMenuWith animator: any UIEditMenuInteractionAnimating) {
