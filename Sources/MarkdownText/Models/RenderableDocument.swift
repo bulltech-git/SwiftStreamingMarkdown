@@ -60,6 +60,63 @@ public struct RenderableDocument: Equatable, Sendable {
   /// An empty document, equivalent to `RenderableDocument(plainText: "", …)`
   /// but allocation-free.
   public static let empty = RenderableDocument(renderables: [])
+
+  /// The renderable for `text` under `config`: parsed on the caller's thread
+  /// the first time, served from memory after that.
+  ///
+  /// Synchronous on purpose. A view that parsed in a `.task` drew an empty
+  /// document first and grew a frame later — inside a lazy stack, every row
+  /// built while scrolling changed height under the reader. Parsing is a few
+  /// milliseconds once per text; the jump was on every appearance.
+  static func cached(text: String, config: MarkdownRenderConfig) -> RenderableDocument {
+    let key = CacheKey(text: text, config: config)
+    if let hit = cache.object(forKey: key) { return hit.document }
+
+    let document = MarkdownParserImpl().parseNow(
+      text: text,
+      option: .init(speculativeRewrite: false, imageSupport: config.imageConfig.enabled)
+    ).document
+    let renderable = RenderableDocument(renderables: document.convert(with: config))
+    cache.setObject(CachedDocument(renderable), forKey: key, cost: text.utf16.count)
+    return renderable
+  }
+
+  /// Bounded by characters parsed, so one huge answer cannot evict a whole
+  /// conversation of short ones. NSCache is documented thread-safe.
+  private static let cache: NSCache<CacheKey, CachedDocument> = {
+    let cache = NSCache<CacheKey, CachedDocument>()
+    cache.totalCostLimit = 4_000_000
+    return cache
+  }()
+
+  /// Text and the (already Dynamic Type-scaled) config: either one changes
+  /// the attributed strings a parse bakes in.
+  private final class CacheKey: NSObject {
+    let text: String
+    let config: MarkdownRenderConfig
+
+    init(text: String, config: MarkdownRenderConfig) {
+      self.text = text
+      self.config = config
+    }
+
+    override var hash: Int {
+      var hasher = Hasher()
+      hasher.combine(text)
+      hasher.combine(config)
+      return hasher.finalize()
+    }
+
+    override func isEqual(_ object: Any?) -> Bool {
+      guard let other = object as? CacheKey else { return false }
+      return text == other.text && config == other.config
+    }
+  }
+
+  private final class CachedDocument {
+    let document: RenderableDocument
+    init(_ document: RenderableDocument) { self.document = document }
+  }
 }
 
 extension RenderableDocument {

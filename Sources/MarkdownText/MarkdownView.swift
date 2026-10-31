@@ -42,6 +42,9 @@ public struct MarkdownView: View {
 /// Parses and renders on behalf of `MarkdownView`, re-parsing whenever the text
 /// *or* the Dynamic Type size changes — paragraph fonts are baked into the
 /// attributed strings at parse time, so a text-size change is a re-parse.
+///
+/// The document is ready on the first frame (see `RenderableDocument.cached`),
+/// so the view is laid out once, at its real height.
 private struct ScaledMarkdownView: View {
 
   @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -50,43 +53,22 @@ private struct ScaledMarkdownView: View {
   let config: MarkdownRenderConfig
   @ObservedObject var controller: MarkdownViewController
 
-  /// `.task` identity: either half invalidates the parsed document.
-  private struct ParseKey: Equatable {
-    let text: String
-    let dynamicTypeSize: DynamicTypeSize
-  }
-
   var body: some View {
     // `config` is passed on unscaled: `DocumentView` scales what it publishes to
     // the tree, so scaling it here as well would compound.
-    DocumentView(renderableDocument: controller.renderable ?? .empty,
+    DocumentView(renderableDocument: .cached(text: text, config: config.scaled(for: dynamicTypeSize)),
                  config: config,
                  listener: controller.listener)
-    .task(id: ParseKey(text: text, dynamicTypeSize: dynamicTypeSize)) {
-      await controller.parse(text: text, config: config.scaled(for: dynamicTypeSize))
-    }
   }
 }
 
+/// Holds the listener for the view's lifetime: `MarkdownView` is re-created on
+/// every parent render, and the listener must stay the one it was given first.
 final class MarkdownViewController: ObservableObject {
-
-  @Published var renderable: RenderableDocument?
-
-  private let parser = MarkdownParserImpl()
 
   let listener: MarkdownListener?
 
   init(listener: MarkdownListener? = nil) {
     self.listener = listener
-  }
-
-  /// Parses `text` with the Dynamic Type-scaled config supplied by the view.
-  /// The config is a parameter rather than stored state because it follows the
-  /// reader's text size, which can change at any moment.
-  func parse(text: String, config: MarkdownRenderConfig) async {
-    let renderable = await parser.parse(text: text, config: config)
-    await MainActor.run {
-      self.renderable = renderable
-    }
   }
 }

@@ -24,6 +24,12 @@ public final class MarkdownParserImpl: MarkdownParser {
 
   /// Parse `text` into a `MarkdownParseResult`. See `MarkdownParser.parse(text:option:)`.
   public func parse(text: String, option: MarkdownParseOption) async -> MarkdownParseResult {
+    parseNow(text: text, option: option)
+  }
+
+  /// The same parse, on the caller's thread. Nothing in it awaits, so a view
+  /// that must know its height on its first frame can run it inline.
+  func parseNow(text: String, option: MarkdownParseOption) -> MarkdownParseResult {
     let targetString = latexPreprocessor.process(input: text, matchingRules: option.latexMatchingRules)
 
     var result: MarkdownParseResult = MarkdownParseResult(
